@@ -5,6 +5,18 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 /**
+ * Options for creating an ADL entry
+ */
+export interface CreateADLOptions {
+  decision: string;
+  title?: string;
+  author?: string;
+  factSheets?: string[];
+  meeting?: string;
+  status?: string;
+}
+
+/**
  * ADL-MCP Client for interacting with the ADL Model Context Protocol server
  */
 export class ADLMCPClient {
@@ -55,21 +67,29 @@ export class ADLMCPClient {
   /**
    * Create a new ADL entry
    */
-  async createADLEntry(decision: string, author: string, factSheet: string, status: string, title?: string): Promise<any> {
+  async createADLEntry(options: CreateADLOptions): Promise<any> {
     if (!this.connected) {
       throw new Error('Not connected to ADL-MCP server. Call connect() first.');
     }
 
     try {
+      // Generate title if not provided
+      const title = options.title || this.generateTitle(options.decision);
+      
+      // Prepare factSheets array
+      const factSheets = options.factSheets && options.factSheets.length > 0 
+        ? options.factSheets 
+        : ['General'];
+      
       // Call the ADL-MCP tool to create a new entry
       const result = await this.client.callTool({
         name: 'adl_create',
         arguments: {
-          title: title || 'TITLE HERE',
-          decision,
-          author,
-          factSheets: [factSheet],
-          status
+          title,
+          decision: options.decision,
+          author: options.author || 'Unknown',
+          factSheets,
+          status: options.status || 'Proposed'
         }
       });
 
@@ -78,6 +98,29 @@ export class ADLMCPClient {
       console.error('Failed to create ADL entry:', error);
       throw error;
     }
+  }
+
+  /**
+   * Generate a short title from decision text
+   */
+  private generateTitle(decision: string): string {
+    if (!decision) return 'Untitled Decision';
+    
+    // Clean the decision text
+    let cleaned = decision.trim();
+    
+    // Remove common prefixes
+    cleaned = cleaned.replace(/^(we (decided|will|chose|selected|are going) (to |that )?)/i, '');
+    cleaned = cleaned.replace(/^(decided to |decision to |decision: )/i, '');
+    
+    // Take first sentence or first 60 characters
+    const firstSentence = cleaned.split(/[.!?]/)[0];
+    let title = firstSentence.length > 60 ? firstSentence.substring(0, 57) + '...' : firstSentence;
+    
+    // Capitalize first letter
+    title = title.charAt(0).toUpperCase() + title.slice(1);
+    
+    return title;
   }
 
   /**
