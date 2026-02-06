@@ -76,7 +76,7 @@ export class ADLMCPClient {
       // Generate title if not provided
       const title = options.title || this.generateTitle(options.decision);
       
-      // Prepare factSheets array
+      // Prepare factSheets array - use provided, or fallback to General
       const factSheets = options.factSheets && options.factSheets.length > 0 
         ? options.factSheets 
         : ['General'];
@@ -101,7 +101,8 @@ export class ADLMCPClient {
   }
 
   /**
-   * Generate a short title from decision text
+   * Generate a very brief title (<12 words) from decision text
+   * Rephrases decision as a concise action-oriented title
    */
   private generateTitle(decision: string): string {
     if (!decision) return 'Untitled Decision';
@@ -109,9 +110,43 @@ export class ADLMCPClient {
     // Clean the decision text
     let cleaned = decision.trim();
     
-    // Remove common prefixes
-    cleaned = cleaned.replace(/^(we (decided|will|chose|selected|are going) (to |that )?)/i, '');
-    cleaned = cleaned.replace(/^(decided to |decision to |decision: )/i, '');
+    // Extract key action verbs and objects
+    const actionPatterns = [
+      // "We decided to use X" -> "Use X"
+      /(?:we(?:'ve| have)?|i(?:'ve| have)?) (?:decided|chosen|selected|agreed) to (use|implement|adopt|migrate to|switch to|integrate|deploy|establish|create) (.+?)(?:\s+(?:for|to|because|since|as|in order to)|\.|$)/i,
+      // "We will use X" -> "Use X"
+      /(?:we|i) (?:will|shall|are going to|plan to) (use|implement|adopt|migrate|switch|integrate|deploy|establish|create) (.+?)(?:\s+(?:for|to|because|since|as|in order to)|\.|$)/i,
+      // "Using X for Y" -> "Use X for Y"
+      /(using|implementing|adopting|migrating to|switching to|integrating|deploying) (.+?)(?:\s+(?:for|to|as)(.+?))?(?:\.|$)/i,
+      // "Decision to use X" -> "Use X"
+      /decision (?:to|is to) (use|implement|adopt|migrate to|switch to|integrate|deploy) (.+?)(?:\s+(?:for|to)|\.|$)/i,
+    ];
+    
+    for (const pattern of actionPatterns) {
+      const match = cleaned.match(pattern);
+      if (match) {
+        const verb = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+        const object = match[2]?.trim() || '';
+        const context = match[3]?.trim() || '';
+        
+        // Build title with verb + object + optional context
+        let title = `${verb} ${object}`;
+        if (context) {
+          title += ` for ${context}`;
+        }
+        
+        // Limit to ~60 chars (approximately 12 words)
+        if (title.length > 60) {
+          title = title.substring(0, 57) + '...';
+        }
+        
+        return title;
+      }
+    }
+    
+    // Fallback: Remove common prefixes and take first part
+    cleaned = cleaned.replace(/^(we(?:'ve| have)?|i(?:'ve| have)?) (?:decided|will|chose|selected|are going) (?:to |that )?/i, '');
+    cleaned = cleaned.replace(/^(decided to |decision to |decision: |use |implement |adopt )/i, '');
     
     // Take first sentence or first 60 characters
     const firstSentence = cleaned.split(/[.!?]/)[0];
