@@ -1,0 +1,30 @@
+# Environment Configuration
+.env
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.js
+*.js.map
+*.d.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+
+# Testing
+coverage/
+.nyc_output/
